@@ -3,8 +3,10 @@ import React from "react";
 const ListItemComponent = (props) => {
   return (
     <>
-      <li key={`${props.id}`}>{props.name}</li>
-      {props.children}
+      <li className={`${props.className}`} key={`${props.id}`}>
+        <p>{props.name}</p>
+        {props.children}
+      </li>
     </>
   );
 };

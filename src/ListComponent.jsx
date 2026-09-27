@@ -34,30 +34,50 @@ const ListComponent = () => {
   };
 
   return (
-    <>
-      <input
-        onKeyDown={onKeyAddHandler}
-        onChange={onChangeHandler}
-        value={input}
-        placeholder="New Task"
-      />
-      <h2>{tasks.length}</h2>
-      <ul>
+    <div className="flex flex-col gap-2 border-2 border-green-500 rounded-2xl shadow-xl p-6 bg-gray-800">
+      <div className="flex justify-between">
+        <h1 className="text-xl font-semibold text-white">ToDoListSX</h1>
+        <h2 className="text-gray-400 text-sm">{tasks.length} tasks</h2>
+      </div>
+      <div className="flex gap-2">
+        <input
+          className="bg-gray-700 text-white px-4 border rounded-xl"
+          onKeyDown={onKeyAddHandler}
+          onChange={onChangeHandler}
+          value={input}
+          placeholder="New Task"
+        />
+        <button
+          className="bg-blue-600 cursor-pointer hover:bg-blue-700 font-medium px-5 rounded-lg text-white"
+          onClick={() => onClickAddHandler(input)}
+        >
+          Add Task
+        </button>
+      </div>
+      <ul className="flex flex-col gap-2">
         {tasks.map((task) => (
-          <ListItemComponent key={task.id} name={task.name}>
-            {
-              <ButtonComponent
-                text={"X"}
-                onClick={() => deleteHandler(task.id)}
-                type={"button"}
-              />
-            }
+          <ListItemComponent
+            className="flex items-center justify-between bg-gray-700 text-white rounded-lg px-4 py-3"
+            key={task.id}
+            name={task.name}
+          >
+            <ButtonComponent
+              className="text-gray-500 hover:text-white shrink-0"
+              text={"✕"}
+              onClick={() => deleteHandler(task.id)}
+              type={"button"}
+            />
           </ListItemComponent>
         ))}
       </ul>
-      <button onClick={() => onClickAddHandler(input)}>Add Task</button>
-      <button onClick={clearHandler}>Clear Tasks</button>
-    </>
+      {tasks.length === 0 && <p className="text-white">No found</p>}
+      <button
+        className="bg-gray-700 cursor-pointer hover:bg-gray-900 text-gray-400 rounded-lg py-2 mt-2"
+        onClick={clearHandler}
+      >
+        Clear Tasks
+      </button>
+    </div>
   );
 };
 
