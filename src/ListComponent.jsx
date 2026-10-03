@@ -1,48 +1,122 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ListItemComponent from "./ListItemComponent";
 import ButtonComponent from "./ButtonComponent";
-import useLocalStorage from "./useLocalStorage";
+import axios from "axios";
+
+axios.defaults.baseURL = "http://localhost:3030/";
 
 const ListComponent = () => {
-  const [input, setInput] = useState("");
-  const [tasks, setTasks] = useLocalStorage("tasks", []);
+  const [tasks, setTasks] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [isEditLoading, setIsEditLoading] = useState(false);
+  const [isEditSaving, setIsEditSaving] = useState(false);
+  const [editError, setEditError] = useState(null);
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    completed: false,
+  });
 
-  const onChangeHandler = (e) => {
-    const value = e.target.value;
-    setInput(value);
+  useEffect(() => {
+    axios
+      .get("tasks")
+      .then((res) => setTasks(res.data))
+      .catch(() => setError("Failed to load tasks"))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const onFormChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm({ ...form, [name]: type === "checkbox" ? checked : value });
   };
 
-  const onClickAddHandler = (input) => {
-    const updatedTasks = [
-      ...tasks,
-      { id: Date.now(), name: input, completed: false },
-    ];
-    setTasks(updatedTasks);
-    setInput("");
+  const onEditChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setEditForm({ ...editForm, [name]: type === "checkbox" ? checked : value });
   };
 
-  const onKeyAddHandler = (e) => {
-    if (isValid && e.key === "Enter") {
-      onClickAddHandler(input.trim());
+  const saveHandler = async () => {
+    setIsEditSaving(true);
+    setEditError(null);
+    try {
+      const res = await axios.put(`tasks/${editId}`, editForm);
+      setTasks((prev) => prev.map((t) => (t.id === editId ? res.data : t)));
+      setEditId(null);
+    } catch {
+      setEditError("Failed to save task");
+    } finally {
+      setIsEditSaving(false);
     }
   };
 
-  const deleteHandler = (id) => {
-    const finalTasks = tasks.filter((task) => task.id !== id);
-    setTasks(finalTasks);
+  const addHandler = async () => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const payloud = {
+        ...form,
+        creationDate: new Date().toISOString(),
+      };
+      const res = await axios.post("tasks", payloud);
+      setTasks((prev) => [...prev, res.data]);
+      setForm({ name: "", description: "", completed: false });
+      setShowForm(false);
+    } catch {
+      setError("Failed to add task");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const clearHandler = () => {
-    setTasks([]);
+  const deleteHandler = async (id) => {
+    try {
+      await axios.delete(`tasks/${id}`);
+      setTasks((prev) => prev.filter((item) => item.id !== id));
+    } catch {
+      setError("Failed to delete task");
+    }
   };
 
-  const toggleCompleted = (id) => {
-    const completedTasks = tasks.map((task) =>
-      task.id === id ? { ...task, completed: !task.completed } : task,
-    );
-    setTasks(completedTasks);
+  const editHandler = async (id) => {
+    setEditId(id);
+    setEditForm(null);
+    setEditError(null);
+    setIsEditLoading(true);
+    try {
+      const res = await axios.get(`tasks/${id}`);
+      setEditForm(res.data);
+    } catch {
+      setEditError("Failed to load task");
+    } finally {
+      setIsEditLoading(false);
+    }
+  };
+
+  const clearHandler = async () => {
+    try {
+      await Promise.all(tasks.map((t) => axios.delete(`tasks/${t.id}`)));
+      setTasks([]);
+    } catch {
+      setError("Failed to clear tasks");
+    }
+  };
+
+  const toggleCompleted = async (task) => {
+    try {
+      const res = await axios.patch(`tasks/${task.id}`, {
+        completed: !task.completed,
+      });
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? res.data : t)));
+    } catch {
+      setError("Failed to update task");
+    }
   };
 
   const filteredTasks = tasks.filter((task) => {
@@ -54,12 +128,6 @@ const ListComponent = () => {
     if (filter === "completed") matchesFilter = task.completed;
     return matchesSearch && matchesFilter;
   });
-
-  const minLength = 3;
-  const maxLength = 35;
-
-  const trimmedLength = input.trim().length;
-  const isValid = trimmedLength >= minLength && trimmedLength <= maxLength;
 
   return (
     <div className="flex flex-col gap-3 border-2 border-green-500 rounded-2xl shadow-xl p-6 bg-gray-800 w-full max-w-2xl mx-auto">
@@ -85,26 +153,48 @@ const ListComponent = () => {
         />
         <h2 className="text-gray-400 text-sm">{tasks.length} tasks</h2>
       </div>
-      <div className="flex gap-2">
-        <input
-          className="flex-1 bg-gray-700 text-white py-2 px-4 border border-gray-600 rounded-xl outline-none focus:border-blue-500 transition-colors placeholder:text-gray-500"
-          onKeyDown={onKeyAddHandler}
-          onChange={onChangeHandler}
-          maxLength={maxLength}
-          value={input}
-          placeholder="New Task"
-        />
-        <button
-          className="bg-blue-600 cursor-pointer hover:bg-blue-700 active:bg-blue-800 font-medium px-5 rounded-xl text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={() => onClickAddHandler(input.trim())}
-          disabled={!isValid}
-        >
-          Add Task
-        </button>
-      </div>
-      {input.length > 0 && trimmedLength < minLength && (
-        <p className="text-red-400 text-sm">Minimum {minLength} characters</p>
+      <button
+        className="bg-blue-600 text-white px-4 py-2 rounded-xl"
+        onClick={() => setShowForm(true)}
+      >
+        Add
+      </button>
+      {showForm && (
+        <div className="flex flex-col gap-2">
+          <input
+            className="bg-gray-700 text-white py-2 px-4 rounded-xl"
+            name="name"
+            placeholder="Name"
+            value={form.name}
+            onChange={onFormChange}
+          />
+          <textarea
+            className="bg-gray-700 text-white py-2 px-4 rounded-xl"
+            name="description"
+            placeholder="Description"
+            value={form.description}
+            onChange={onFormChange}
+          />
+          <label className="text-white flex gap-2">
+            <input
+              type="checkbox"
+              name="completed"
+              checked={form.completed}
+              onChange={onFormChange}
+            />
+            Completed
+          </label>
+          <button
+            className="bg-green-600 text-white px-4 py-2 rounded-xl disabled:opacity-50"
+            onClick={addHandler}
+            disabled={isSaving || form.name.trim().length < 3}
+          >
+            {isSaving ? "Saving..." : "Add"}
+          </button>
+        </div>
       )}
+      {isLoading && <p className="text-gray-400 text-center">Loading...</p>}
+      {error && <p className="text-red-400 text-center">{error}</p>}
       <ul className="flex flex-col gap-2">
         {filteredTasks.map((task) => (
           <ListItemComponent
@@ -117,7 +207,13 @@ const ListComponent = () => {
               <input
                 type="checkbox"
                 checked={task.completed}
-                onChange={() => toggleCompleted(task.id)}
+                onChange={() => toggleCompleted(task)}
+              />
+              <ButtonComponent
+                className="text-gray-500 cursor-pointer hover:text-red-400 shrink-0 transition-colors"
+                text={"Edit"}
+                onClick={() => editHandler(task.id)}
+                type={"button"}
               />
               <ButtonComponent
                 className="text-gray-500 cursor-pointer hover:text-red-400 shrink-0 transition-colors"
@@ -143,6 +239,58 @@ const ListComponent = () => {
       >
         Clear Tasks
       </button>
+      {editId && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center">
+          <div className="bg-gray-800 p-6 rounded-2xl w-full max-w-md flex flex-col gap-3">
+            <h2 className="text-white text-lg">Edit task</h2>
+
+            {isEditLoading && <p className="text-gray-400">Loading...</p>}
+            {editError && <p className="text-red-400 text-sm">{editError}</p>}
+
+            {editForm && (
+              <>
+                <input
+                  className="bg-gray-700 text-white py-2 px-4 rounded-xl"
+                  name="name"
+                  value={editForm.name}
+                  onChange={onEditChange}
+                />
+                <textarea
+                  className="bg-gray-700 text-white py-2 px-4 rounded-xl"
+                  name="description"
+                  value={editForm.description}
+                  onChange={onEditChange}
+                />
+                <label className="text-white flex gap-2">
+                  <input
+                    type="checkbox"
+                    name="completed"
+                    checked={editForm.completed}
+                    onChange={onEditChange}
+                  />
+                  Completed
+                </label>
+              </>
+            )}
+
+            <div className="flex gap-2 justify-end">
+              <button
+                className="text-gray-400 px-4"
+                onClick={() => setEditId(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="bg-blue-600 text-white px-5 py-2 rounded-xl disabled:opacity-50"
+                onClick={saveHandler}
+                disabled={!editForm || isEditSaving}
+              >
+                {isEditSaving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
