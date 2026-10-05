@@ -1,4 +1,15 @@
 {
-  "tasks": [],
+  "tasks": [
+    {
+      "name": "dasfasfsffsafsffsffssf",
+      "description": "",
+      "completed": true,
+      "creationDate": "2026-10-05T14:37:13.677Z",
+      "id": "P_yagfXlQn0"
+    }
+  ],
+  "auth": {
+    "isAuthenticated": true
+  },
   "$schema": "./node_modules/json-server/schema.json"
 }
