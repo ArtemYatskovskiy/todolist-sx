@@ -1,0 +1,1 @@
+import{c as e,g as t,h as n,l as r,m as i}from"./index-CR6sLbcH.js";var a=r(),o=()=>{let r=t(),{isAuthenticated:o,isLoading:s,isError:c}=e();return s?(0,a.jsx)(`p`,{className:`text-center`,children:`Loading...`}):c?(0,a.jsx)(i,{to:`/error`,replace:!0}):o?(0,a.jsx)(n,{}):(0,a.jsx)(i,{to:`/login`,replace:!0,state:{from:r}})};export{o as default};
