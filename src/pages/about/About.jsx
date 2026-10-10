@@ -5,12 +5,13 @@ const technologies = [
   "Vite",
   "Tailwind CSS",
   "React Router",
-  "TanStack React Query",
+  "Redux Toolkit",
+  "React Redux",
+  "Context API",
   "React Hook Form",
   "Axios",
   "json-server",
   "ESLint",
-  "GitHub Pages",
 ];
 
 const About = () => {

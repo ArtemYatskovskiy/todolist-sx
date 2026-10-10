@@ -1,24 +1,21 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getTask, updateTask } from "../../api/api";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchTask, saveTask } from "../../store/tasksSlice";
 
 const EditTask = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const dispatch = useDispatch();
 
-  const {
-    data: task,
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
-    queryKey: ["task", id],
-    queryFn: () => getTask(id),
-    retry: false,
-  });
+  const task = useSelector((state) => state.tasks.currentTask);
+  const status = useSelector((state) => state.tasks.currentStatus);
+  const errorCode = useSelector((state) => state.tasks.currentErrorCode);
+  const isLoading = status === "loading";
+  const isError = status === "failed";
+
+  const [isSaving, setIsSaving] = useState(false);
 
   const {
     register,
@@ -28,25 +25,27 @@ const EditTask = () => {
   } = useForm();
 
   useEffect(() => {
+    dispatch(fetchTask(id));
+  }, [dispatch, id]);
+
+  useEffect(() => {
     if (task) reset(task);
   }, [task, reset]);
 
-  const updateMutation = useMutation({
-    mutationFn: updateTask,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["task", id] });
+  const handleSave = async (data) => {
+    setIsSaving(true);
+    try {
+      await dispatch(saveTask({ ...task, ...data })).unwrap();
       navigate("/todo-list");
-    },
-    onError: () => navigate("/error"),
-  });
-
-  const handleSave = (data) => {
-    updateMutation.mutate({ ...task, ...data });
+    } catch {
+      navigate("/error");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isError) {
-    const path = error.response?.status === 404 ? "/not-found-page" : "/error";
+    const path = errorCode === 404 ? "/not-found-page" : "/error";
     return <Navigate to={path} replace />;
   }
 
@@ -92,7 +91,7 @@ const EditTask = () => {
             onClick={handleSubmit(handleSave)}
             className="bg-blue-600 hover:bg-blue-700 transition-colors text-white px-5 py-2 rounded-xl"
           >
-            {updateMutation.isPending ? "Saving..." : "Save"}
+            {isSaving ? "Saving..." : "Save"}
           </Link>
         </div>
       </div>

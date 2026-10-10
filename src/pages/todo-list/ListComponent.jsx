@@ -1,10 +1,16 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { useForm } from "react-hook-form";
 import ListItemComponent from "./ListItemComponent";
 import ButtonComponent from "./ButtonComponent";
-import { getTasks, addTask, patchTask, deleteTask } from "../../api/api";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import {
+  fetchTasks,
+  addNewTask,
+  toggleTask,
+  removeTask,
+  clearTasks,
+} from "../../store/tasksSlice";
 
 const ListComponent = () => {
   const [filter, setFilter] = useState("all");
@@ -12,38 +18,57 @@ const ListComponent = () => {
   const [showForm, setShowForm] = useState(false);
   const navigate = useNavigate();
   const goToError = () => navigate("/error");
+  const dispatch = useDispatch();
+  const tasks = useSelector((state) => state.tasks.items);
+  const status = useSelector((state) => state.tasks.status);
+  const isLoading = status === "loading";
+  const isError = status === "failed";
+  const [isSaving, setIsSaving] = useState(false);
 
-  const {
-    data: tasks = [],
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: ["tasks"],
-    queryFn: getTasks,
-    retry: false,
-  });
+  const onAddSubmit = async (data) => {
+    setIsSaving(true);
+    try {
+      await dispatch(
+        addNewTask({ ...data, creationDate: new Date().toISOString() }),
+      ).unwrap();
+      reset();
+      setShowForm(false);
+    } catch {
+      goToError();
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
-  const queryClient = useQueryClient();
-  const refetchTasks = () =>
-    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+  const toggleHandler = async (task) => {
+    try {
+      await dispatch(
+        toggleTask({ id: task.id, completed: !task.completed }),
+      ).unwrap();
+    } catch {
+      goToError();
+    }
+  };
 
-  const deleteMutation = useMutation({
-    mutationFn: deleteTask,
-    onSuccess: refetchTasks,
-    onError: goToError,
-  });
+  const deleteHandler = async (id) => {
+    try {
+      await dispatch(removeTask(id)).unwrap();
+    } catch {
+      goToError();
+    }
+  };
 
-  const toggleMutation = useMutation({
-    mutationFn: patchTask,
-    onSuccess: refetchTasks,
-    onError: goToError,
-  });
+  const clearHandler = async () => {
+    try {
+      await dispatch(clearTasks(tasks)).unwrap();
+    } catch {
+      goToError();
+    }
+  };
 
-  const clearMutation = useMutation({
-    mutationFn: () => Promise.all(tasks.map((t) => deleteTask(t.id))),
-    onSuccess: refetchTasks,
-    onError: goToError,
-  });
+  useEffect(() => {
+    dispatch(fetchTasks());
+  }, [dispatch]);
 
   const {
     register,
@@ -53,20 +78,6 @@ const ListComponent = () => {
   } = useForm({
     defaultValues: { name: "", description: "", completed: false },
   });
-
-  const addMutation = useMutation({
-    mutationFn: addTask,
-    onError: goToError,
-    onSuccess: () => {
-      refetchTasks();
-      reset();
-      setShowForm(false);
-    },
-  });
-
-  const onAddSubmit = (data) => {
-    addMutation.mutate({ ...data, creationDate: new Date().toISOString() });
-  };
 
   const filteredTasks = tasks.filter((task) => {
     const matchesSearch = task.name
@@ -139,9 +150,9 @@ const ListComponent = () => {
             <button
               type="submit"
               className="bg-green-600 text-white px-4 py-2 rounded-xl disabled:opacity-50 cursor-pointer"
-              disabled={addMutation.isPending}
+              disabled={isSaving}
             >
-              {addMutation.isPending ? "Saving..." : "Add"}
+              {isSaving ? "Saving..." : "Add"}
             </button>
           </form>
         )}
@@ -160,12 +171,7 @@ const ListComponent = () => {
                 <input
                   type="checkbox"
                   checked={task.completed}
-                  onChange={() =>
-                    toggleMutation.mutate({
-                      id: task.id,
-                      completed: !task.completed,
-                    })
-                  }
+                  onChange={() => toggleHandler(task)}
                 />
                 <Link
                   to={`/todo-list/${task.id}`}
@@ -176,7 +182,7 @@ const ListComponent = () => {
                 <ButtonComponent
                   className="text-gray-500 cursor-pointer hover:text-red-400 shrink-0 transition-colors"
                   text={"✕"}
-                  onClick={() => deleteMutation.mutate(task.id)}
+                  onClick={() => deleteHandler(task.id)}
                   type={"button"}
                 />
               </div>
@@ -193,8 +199,8 @@ const ListComponent = () => {
 
         <button
           className="bg-gray-700 cursor-pointer hover:bg-red-500/20 hover:text-red-400 text-gray-400 rounded-xl py-2 mt-2 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          onClick={() => clearMutation.mutate()}
-          disabled={tasks.length === 0 || clearMutation.isPending}
+          onClick={clearHandler}
+          disabled={tasks.length === 0}
         >
           Clear Tasks
         </button>

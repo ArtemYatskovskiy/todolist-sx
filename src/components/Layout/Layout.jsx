@@ -1,6 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getAuth, setAuth } from "../../api/api";
+import { useAuth } from "../../context/AuthContext";
 
 const linkClass = ({ isActive }) =>
   `px-3 py-1 rounded-xl transition-colors ${
@@ -9,23 +8,16 @@ const linkClass = ({ isActive }) =>
 
 const Layout = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const { isAuthenticated, logout } = useAuth();
 
-  const { data: auth } = useQuery({
-    queryKey: ["auth"],
-    queryFn: getAuth,
-    staleTime: Infinity,
-    retry: false,
-  });
-
-  const logoutMutation = useMutation({
-    mutationFn: () => setAuth(false),
-    onSuccess: (data) => {
-      queryClient.setQueryData(["auth"], data);
+  const handleLogout = async () => {
+    try {
+      await logout();
       navigate("/");
-    },
-    onError: () => navigate("/error-page"),
-  });
+    } catch {
+      navigate("/error");
+    }
+  };
 
   return (
     <div>
@@ -39,10 +31,10 @@ const Layout = () => {
         <NavLink to="/about" className={linkClass}>
           About
         </NavLink>
-        {auth?.isAuthenticated && (
+        {isAuthenticated && (
           <button
             className="text-gray-400 hover:text-white ml-auto"
-            onClick={() => logoutMutation.mutate()}
+            onClick={handleLogout}
           >
             Logout
           </button>
